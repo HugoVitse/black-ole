@@ -93,21 +93,21 @@ $$x_{cam} = (t_{cam}, r_{cam}, \theta_{cam}, \phi_{cam})$$
 
 In order to perform the change of basis we need the matrix corresponding. It is composed of 4 vectors given by Schwarzschild's metric
 
-\[
+$$
 e_{(0)}^{\mu} = \left( \frac{1}{\sqrt{1-\frac{2M}{r_{cam}}}},\ 0,\ 0,\ 0 \right)
-\]
+$$
 
-\[
+$$
 e_{(1)}^{\mu} = \left( 0,\ \sqrt{1-\frac{2M}{r_{cam}}},\ 0,\ 0 \right)
-\]
+$$
 
-\[
+$$
 e_{(2)}^{\mu} = \left( 0,\ 0,\ \frac{1}{r_{cam}},\ 0 \right)
-\]
+$$
 
-\[
+$$
 e_{(3)}^{\mu} = \left( 0,\ 0,\ 0,\ \frac{1}{r_{cam} \sin\theta_{cam}} \right)
-\]
+$$
 
 Those are the base vector of the local referential expressed with the global referential's coordinates
 
@@ -143,53 +143,53 @@ $$\frac{d k^{\mu}}{d\lambda}= - \Gamma^{\mu}_{\alpha\beta}k^{\alpha} k^{\beta}$$
 
 Christoffel symbols are the $\Gamma$ symbols involved in one of our equations. They act like a force curving the trajectory. There are 64 of them and its expressions depends on the metric. With Schwarzschild metric, only 13 of them are non-nul. Here there are
 
-\[
+$$
 \Gamma^{t}_{\;tr} = \Gamma^{t}_{\;rt}
 = \frac{M}{r(r-2M)}
-\]
+$$
 
-\[
+$$
 \Gamma^{r}_{\;tt}
 = \frac{M(r-2M)}{r^{3}}
-\]
+$$
 
-\[
+$$
 \Gamma^{r}_{\;rr}
 = -\,\frac{M}{r(r-2M)}
-\]
+$$
 
-\[
+$$
 \Gamma^{r}_{\;\theta\theta}
 = -(r-2M)
-\]
+$$
 
-\[
+$$
 \Gamma^{r}_{\;\phi\phi}
 = -(r-2M)\,\sin^{2}\theta
-\]
+$$
 
-\[
+$$
 \Gamma^{\theta}_{\;r\theta}
 = \Gamma^{\theta}_{\;\theta r}
 = \frac{1}{r}
-\]
+$$
 
-\[
+$$
 \Gamma^{\theta}_{\;\phi\phi}
 = -\,\sin\theta\,\cos\theta
-\]
+$$
 
-\[
+$$
 \Gamma^{\phi}_{\;r\phi}
 = \Gamma^{\phi}_{\;\phi r}
 = \frac{1}{r}
-\]
+$$
 
-\[
+$$
 \Gamma^{\phi}_{\;\theta\phi}
 = \Gamma^{\phi}_{\;\phi\theta}
 = \cot\theta
-\]
+$$
 
 
 ##### RK4
