@@ -29,7 +29,13 @@ struct BlackHole {
 
             case 2: // phi
                 if ((alpha == 0 && beta == 2) || (alpha == 2 && beta == 0)) return 1.0 / x.r;
-                if ((alpha == 1 && beta == 2) || (alpha == 2 && beta == 1)) return std::cos(x.theta) / std::sin(x.theta);
+                if ((alpha == 1 && beta == 2) || (alpha == 2 && beta == 1)) {
+                    double s = std::sin(x.theta);
+                    // Si on est trop près du pôle, on neutralise la force centrifuge infinie
+                    if (std::abs(s) < 1e-4) return 0.0; 
+                    return std::cos(x.theta) / s;
+                }
+
                 return 0;
 
             default: return 0;

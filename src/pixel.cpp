@@ -12,6 +12,7 @@ Pixel::Pixel(int _i, int _j, int W, int H, double h, Tetrade *tetrade, const Vec
     double ytmp = ((2.0 * h) / double(H)) * (double(j) - (double(H) / 2.0));
     double ztmp = 1;
     
+    
 
     //normalisation
     double norm = sqrt( (xtmp*xtmp) + (ytmp*ytmp) + (ztmp*ztmp) );
@@ -36,7 +37,13 @@ Pixel::Pixel(int _i, int _j, int W, int H, double h, Tetrade *tetrade, const Vec
     );
 
  
+    //brigad eanti divergence
     this->photon = Photon(camPos, this->k_global);
+    if (std::abs(std::sin(camPos.theta)) < 1e-5) {
+        this->photon.state.x.y += 1e-6; 
+    }
+    if (this->photon.state.x.theta < 0.001) this->photon.state.x.theta = 0.001;
+    if (this->photon.state.x.theta > M_PI - 0.001) this->photon.state.x.theta = M_PI - 0.001;
 }
 
 
@@ -98,7 +105,10 @@ void Pixel::castPhoton(const BlackHole &blackhole){
     while(this->photon.state.x.x > blackhole.rs && this->photon.state.x.x < blackhole.rmax) {
         double r = this->photon.state.x.x;
         double r_before = r;
-        
+
+        //brigade anti divergence
+     
+            
 
         double step_size;
         if (r < 10.0 * blackhole.rs) {
@@ -113,6 +123,17 @@ void Pixel::castPhoton(const BlackHole &blackhole){
         }
         
         this->photon.RK4step(blackhole, -step_size);
+
+        //brigae antidivegence
+        if (this->photon.state.x.y < 0.0001) this->photon.state.x.y = 0.0001;
+        if (this->photon.state.x.y > M_PI - 0.0001) this->photon.state.x.y = M_PI - 0.0001;
+
+        if (std::abs(this->photon.state.k.r) > 1e4|| std::isnan(this->photon.state.x.x)) { 
+            if (r_before < 2.0 * blackhole.rs) {
+                this->photon.state.x.x = 0.0; 
+            }
+            break; 
+        }
         
         // debug
         if(this->i == 0 && this->j == 0 && iter < 10) {
@@ -145,34 +166,27 @@ void Pixel::setColor(const BlackHole &blackhole){
 
     double multiple = 50.0;
     // si chicken naban ou sous l'horizon -> Noir
-    if (std::isnan(this->photon.state.x.x) || this->photon.state.x.x <= blackhole.rs) {
+    if (this->photon.state.x.x <= blackhole.rs) {
         this->r = 0; this->g = 0; this->b = 0;
         return;
     }
 
-    // si le photon s'est échappé -> On regarde où il a atterri sur la sbybox
-    if (this->photon.state.x.x >= blackhole.rmax) {
+   
 
+    double theta_final = this->photon.state.x.y;
+    double phi_final   = this->photon.state.x.z;
 
-        double theta_final = this->photon.state.x.y;
-        double phi_final   = this->photon.state.x.z;
+    double star_value = sin(theta_final * multiple) * cos(phi_final * multiple);
 
-        double star_value = sin(theta_final * multiple) * cos(phi_final * multiple);
-
-        if (star_value > 0.995) { 
-            this->r = 255; this->g = 255; this->b = 255; // Étoile
-        } else {
-            this->r = 255; this->g = 0; this->b = 0; 
-        }
-        return;
+    if (star_value > 0.995) { 
+        this->r = 255; this->g = 255; this->b = 255; // Étoile
+    } else {
+        this->r = 255; this->g = 0; this->b = 0; 
     }
+    return;
+    
 
 
-
-    // cela ne devrait normalement pas arriver, mais on le gère au cas où
-    this->r = 20;
-    this->g = 20;
-    this->b = 20;
 }
 
 

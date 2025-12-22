@@ -13,13 +13,13 @@ int main(int argc, char** argv) {
 
     BlackHole* bh = new BlackHole(1);
 
-    const double tour = PI/6;
+    const double tour = PI/12;
  
 
     for (int f = 0; f < nb_frames; f++) {
         double angle = (tour * f) / nb_frames; //faire bouger l'angle de camera pour faire genre le ciel bouge
 
-        Vec4 camPos(20.0, PI/2, angle, 0);
+        Vec4 camPos(10.0, PI/2, angle, 0);
         
         // résolution
         const int W = 800;
