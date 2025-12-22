@@ -1,1 +1,6 @@
 /build
+*.ppm
+*.mp4
+.vscode
+perf.*
+flamegraph.svg
