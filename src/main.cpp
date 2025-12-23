@@ -25,8 +25,8 @@ int main(int argc, char** argv) {
         Vec4 camPos(10.0, PI/2, angle, 0);
         
         // résolution
-        const int W = 8000;
-        const int H = 4000;
+        const int W = 1920/8;   
+        const int H = 1080/8;   
         double FOV = PI/3; 
         
         Image* image = new Image(W, H, FOV, camPos);

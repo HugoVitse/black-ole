@@ -29,7 +29,7 @@ struct Photon {
     Photon(Vec4 _x, Vec4 _k) : state(_x, _k) {};
     Photon() : state(Vec4(), Vec4()) {};
 
-    void RK4step( const BlackHole& blackHole, double h);
+    void RK4step( const BlackHole& blackHole, double h, bool debug = false);
 
 };
 

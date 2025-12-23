@@ -17,6 +17,17 @@ void Skybox::getColor(double theta, double phi, int &r, int &g, int &b) const{
     g = data[index + 1];
     b = data[index + 2];
 
+    // if(data[index] == 0 && data[index + 1] == 0 && data[index + 2] == 0 && phi == 0){
+    //     printf("index : %d\n", index);
+    //     printf("x : %d\n", x);
+    //     printf("y : %d\n", y);
+    //     printf("width : %d\n", width);
+    //     printf("height : %d\n", height);
+    //     printf("phi : %f\n", phi);
+    //     printf("theta : %f\n", theta);
+    //     printf("u : %f\n", u);
+    //     printf("v : %f\n", v);
+    // }
 }
 
 void Skybox::load(const char* filename) {

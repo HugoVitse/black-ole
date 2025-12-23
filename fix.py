@@ -12,8 +12,8 @@ def fix_ppm_red_to_black(input_file, output_file):
         
         # 2. Traiter les pixels (RVB : 3 octets par pixel)
         # On définit la couleur cible (rouge pur) et la nouvelle (noir)
-        target_red = b'\xff\x00\x00'
-        replacement_black = b'\x00\x00\x00'
+        target_red = b'\x00\x00\x00'
+        replacement_black = b'\xff\x00\x00'
         
         count = 0
         while True:
@@ -32,6 +32,6 @@ def fix_ppm_red_to_black(input_file, output_file):
     print(f"Nouveau fichier sauvegardé sous : {output_file}")
 
 # Utilisation
-input_name = "rendu_modif.ppm" # Mets le nom de ton fichier 8K ici
-output_name = "rendu_fix.ppm"
+input_name = "assets/skybox2.ppm" # Mets le nom de ton fichier 8K ici
+output_name = "assets/skybox3.ppm"
 fix_ppm_red_to_black(input_name, output_name)

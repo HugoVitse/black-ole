@@ -32,8 +32,9 @@ struct BlackHole {
                 if ((alpha == 1 && beta == 2) || (alpha == 2 && beta == 1)) {
                     double s = std::sin(x.theta);
                     // Si on est trop près du pôle, on neutralise la force centrifuge infinie
-                    if (std::abs(s) < 1e-4) return 0.0; 
-                    return std::cos(x.theta) / s;
+                    double epsilon = 1e-15; 
+                    double safe_sin = (std::abs(s) < epsilon) ? (s >= 0 ? epsilon: -epsilon) : s;
+                    return std::cos(x.theta) / safe_sin;
                 }
 
                 return 0;

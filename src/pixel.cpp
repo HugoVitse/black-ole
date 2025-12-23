@@ -85,6 +85,9 @@ void Pixel::castPhoton(const BlackHole &blackhole){
         }
     }
 
+
+    
+
     //si le photon se pomme (il peut flotter pendant 1000 ans) on le stop au bout de 2000
     const int maxIter = 2000;
     int iter = 0;
@@ -92,7 +95,7 @@ void Pixel::castPhoton(const BlackHole &blackhole){
     // pour accélérer le rendu, on modifie le step en fonction de la distance 
     // plus on est loin du trou noir plus le comportement du bordel est régulier => pas obligé d'avoir un pas très précis
     double base_step = 1;
-    double min_step = 0.1;
+    double min_step = 0.001;
     double max_step = 10.0;
     
     // debug
@@ -103,17 +106,16 @@ void Pixel::castPhoton(const BlackHole &blackhole){
                this->photon.state.k.z, this->photon.state.k.t);
     }
     
-    while(this->photon.state.x.x > blackhole.rs && this->photon.state.x.x < blackhole.rmax) {
+    while(this->photon.state.x.x > blackhole.rs * 1.01 && this->photon.state.x.x < blackhole.rmax) {
+
         double r = this->photon.state.x.x;
+        double theta = this->photon.state.x.y;
+        double k_theta = this->photon.state.k.y;
         double r_before = r;
 
-        //brigade anti divergence
-     
-            
-
+    
         double step_size;
         if (r < 10.0 * blackhole.rs) {
-
             step_size = min_step + (base_step - min_step) * (r - blackhole.rs) / (9.0 * blackhole.rs);
             step_size = std::max(min_step, std::min(step_size, base_step));
 
@@ -122,45 +124,93 @@ void Pixel::castPhoton(const BlackHole &blackhole){
         } else {
             step_size = std::min(max_step, base_step * (r / (100.0 * blackhole.rs)));
         }
+
+        //  moment chiant en coordonnées sphériques le photon diverge a des milliards de km donc vers le pole on saute juste a travers pour eviter ca
+        // cela est du au fait que  sin(PI) =0 et sin(0) = 0 donc quand on doit diviser par un sinus ca fait diverger le truc
+
+        bool must_jump = false;
+        double dist_to_pole;
+
+        // pole nord quand Theta -> 0
+      
+        // on a  un step négatif (-step), cela implique k_theta > 0
+        if (theta < 0.05 && k_theta > 0) { 
+            //  0 = theta - k * dist => dist = theta / k en gros
+            dist_to_pole = theta / k_theta; 
+            if (dist_to_pole < step_size) must_jump = true; // si au prochain step on est dans le pole on doit sauter a travers
+        } 
         
+        // pole SUD (Theta -> PI)
+
+        else if (theta > M_PI - 0.05 && k_theta < 0) {
+            // PI = theta - k * dist => k * dist = theta - PI => dist = (theta - PI) / k
+            dist_to_pole = (theta - M_PI) / k_theta;
+            
+            if (dist_to_pole < step_size) must_jump = true;
+        }
+
+       
+
+        if (must_jump) {
+        
+            //on skip direct jusquau pole
+            this->photon.state.x.x += this->photon.state.k.x * dist_to_pole; // r
+            this->photon.state.x.t += this->photon.state.k.t * dist_to_pole; // t
+            this->photon.state.x.z += this->photon.state.k.z * dist_to_pole; // phi
+
+            // la vitesse s'inverse dcp
+            this->photon.state.k.y = -this->photon.state.k.y;
+            this->photon.state.k.z = 0.0;
+           
+            
+            if (theta < 1.0) this->photon.state.x.y = 0.01; // Juste après le Nord
+            else             this->photon.state.x.y = M_PI - 0.01; // Juste après le Sud
+            
+            // phi subit une rotation de PI
+            this->photon.state.x.z += M_PI;
+
+            //modulo 2PI
+            this->photon.state.x.z = fmod(this->photon.state.x.z, 2.0 * M_PI);
+            if (this->photon.state.x.z < 0) this->photon.state.x.z += 2.0 * M_PI;
+
+            continue; 
+        }
+        
+ 
         this->photon.RK4step(blackhole, -step_size);
 
-        //brigae antidivegence
-        if (this->photon.state.x.y < 0.0001) this->photon.state.x.y = 0.0001;
-        if (this->photon.state.x.y > M_PI - 0.0001) this->photon.state.x.y = M_PI - 0.0001;
 
-        if (std::abs(this->photon.state.k.r) > 1e4|| std::isnan(this->photon.state.x.x)) { 
-            if (r_before < 1.5 * blackhole.rs) {
-                this->photon.state.x.x = 0.0; 
-            }
+        //sécurités modulo 2pi pour eviter les divergences
+        this->photon.state.x.z = fmod(this->photon.state.x.z, 2.0 * M_PI);
+        if (this->photon.state.x.z < 0) this->photon.state.x.z += 2.0 * M_PI;
+
+        //on s'assure que les angles ne vallent jamais PI exactement ou 0 exactement
+        if (this->photon.state.x.y < 1e-9) this->photon.state.x.y = 1e-9;
+        if (this->photon.state.x.y > M_PI - 1e-9) this->photon.state.x.y = M_PI - 1e-9;
+
+        double r_after = this->photon.state.x.x;
+
+ 
+        if ((r_after > r_before * 2.0 && r_before < 10.0 * blackhole.rs) || r_after <= blackhole.rs * 1.01) {
+            this->photon.state.x.x = 0.0; // Capturé
             break; 
         }
-        
-        // debug
-        if(this->i == 0 && this->j == 0 && iter < 10) {
-            double r_after = this->photon.state.x.x;
-            printf("  iter %d: r %.2f -> %.2f (dr=%.2f), k_r=%.6f\n", 
-                   iter, r_before, r_after, r_after - r_before, this->photon.state.k.x);
+ 
+        if (std::isnan(r_after) || std::isinf(r_after)) {
+             this->photon.state.x.x = 0.0;
+             break;
         }
-        
-        // cheese naan
-        bool anyNan = std::isnan(this->photon.state.x.x) || std::isnan(this->photon.state.x.y)
-                   || std::isnan(this->photon.state.x.z) || std::isnan(this->photon.state.x.t)
-                   || std::isnan(this->photon.state.k.x) || std::isnan(this->photon.state.k.y)
-                   || std::isnan(this->photon.state.k.z) || std::isnan(this->photon.state.k.t);
 
-        if(anyNan) {
-            // stop integration;
-            break;
-        }
-        
         if(++iter > maxIter) {
-            // safety stop
-            this->r= NAN;
+            this->r = NAN; // Perdu dans l'espace nsm hein
             break;
         }
     }
+    
 
+
+ 
+   
 }
 
 void Pixel::setColor(const BlackHole &blackhole, const Skybox &skybox){
@@ -168,14 +218,13 @@ void Pixel::setColor(const BlackHole &blackhole, const Skybox &skybox){
     double multiple = 50.0;
     // si chicken naban ou sous l'horizon -> Noir
     if (this->photon.state.x.x <= blackhole.rs) {
-        this->r = 255; this->g = 0; this->b = 0;
+        this->r = 0; this->g = 0; this->b = 0;
         return;
     }
 
-   
 
     double theta_final = this->photon.state.x.y;
-    double phi_final   = this->photon.state.x.z;
+    double phi_final   = this->photon.state.x.z ;
 
     int resR, resG, resB;
     skybox.getColor(theta_final, phi_final, resR, resG, resB);

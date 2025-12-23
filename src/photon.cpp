@@ -2,7 +2,7 @@
 #include <iostream>
 #include <cmath>
 
-void Photon::RK4step( const BlackHole& blackHole, double h) {
+void Photon::RK4step( const BlackHole& blackHole, double h, bool debug) {
 
     // calcul des ki
     PhotonState k1 = this->state.F(blackHole);
@@ -11,6 +11,19 @@ void Photon::RK4step( const BlackHole& blackHole, double h) {
     PhotonState k4 = (this->state + k3*h).F(blackHole);
 
     PhotonState delta = ((k1 + k2*2 + k3*2 + k4) * (h/6));
+
+ 
+    if(debug){
+        printf("k1 : ");
+        k1.to_string();
+        printf("k2 : ");
+        k2.to_string();
+        printf("k3 : ");
+        k3.to_string();
+        printf("k4 : ");
+        k4.to_string();
+        delta.to_string();
+    }
 
     //compute deltas on eache composant
     double nx = this->state.x.x + delta.x.x;
@@ -29,6 +42,7 @@ void Photon::RK4step( const BlackHole& blackHole, double h) {
 
     // apply delta
     this->state += delta;
+
 
     (void)anyNan; // caller can detect NaNs in state afterwards
 
@@ -63,16 +77,6 @@ void Photon::RK4step( const BlackHole& blackHole, double h) {
 //fonction principale F pour calculer les ki en fonction de l'etat précédent
 PhotonState PhotonState::F(const BlackHole& blackHole) {
 
-    double r = this->x.r; // x.x
-    double th = this->x.theta; // x.y
-    double M = blackHole.mass;
-    
-    // pré-calculs 
-    double r2 = r * r;
-    double sinTh = sin(th);
-    double cosTh = cos(th);
-    double inv_r_minus_2M = 1.0 / (r - 2.0 * M);
-    double f = 1.0 - (2.0 * M / r); // Facteur de Schwarzschild
 
     // les composantes de k^mu
     double kr = this->k.r;
