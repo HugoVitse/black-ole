@@ -1,4 +1,6 @@
 #pragma once
+#include <cmath>
+
 
 struct Vec3 {
     double x,y,z;
@@ -9,6 +11,10 @@ struct Vec3 {
     // copy ctor and assignment to keep references valid
     Vec3(const Vec3 &other) : x(other.x), y(other.y), z(other.z), r(x), theta(y), phi(z) {}
     Vec3& operator=(const Vec3 &other) { x = other.x; y = other.y; z = other.z; return *this; }
+
+    double norm() const { return std::sqrt(x*x + y*y + z*z); }
+    Vec3 normalize();
+    Vec3 cross(const Vec3 &other) const;
 
     Vec3 operator+(const Vec3 &other);
     Vec3 operator-(const Vec3 &other);
@@ -32,6 +38,8 @@ struct Vec4 {
     // copy ctor and assignment to keep reference aliases valid
     Vec4(const Vec4 &other) : x(other.x), y(other.y), z(other.z), t(other.t), r(x), theta(y), phi(z) {}
     Vec4& operator=(const Vec4 &other) { x = other.x; y = other.y; z = other.z; t = other.t; return *this; }
+
+    double norm() const { return std::sqrt(x*x + y*y + z*z); }
 
     Vec4 operator+(const Vec4 &other);
     Vec4 operator-(const Vec4 &other);

@@ -63,46 +63,48 @@ void Photon::RK4step( const BlackHole& blackHole, double h) {
 //fonction principale F pour calculer les ki en fonction de l'etat précédent
 PhotonState PhotonState::F(const BlackHole& blackHole) {
 
-    double r = this->x.r; // x.x
-    double th = this->x.theta; // x.y
-    double M = blackHole.mass;
+    double x_c = this->x.x; 
+    double y_c = this->x.y;
+    double z_c = this->x.z;
     
-    // pré-calculs 
-    double r2 = r * r;
-    double sinTh = sin(th);
-    double cosTh = cos(th);
-    double inv_r_minus_2M = 1.0 / (r - 2.0 * M);
-    double f = 1.0 - (2.0 * M / r); // Facteur de Schwarzschild
-
-    // les composantes de k^mu
-    double kr = this->k.r;
-    double kth = this->k.theta;
-    double kph = this->k.phi;
+    double kx = this->k.x;
+    double ky = this->k.y;
+    double kz = this->k.z;
     double kt = this->k.t;
 
-    // ensuite calcul des acceleration (cristoffel * k^ak ^b)
-
-    // r
-    double Gamma_r = - ( 
-                    blackHole.christoffel(0,0,0,x) * k.r * k.r +
-                    blackHole.christoffel(0,1,1,x) * k.theta * k.theta +
-                    blackHole.christoffel(0,2,2,x) * k.phi * k.phi +
-                    blackHole.christoffel(0,3,3,x) * k.t * k.t
-                );
-    // theta
-    double Gamma_th = - ( 2.0 * blackHole.christoffel(1,0,1,x) * k.r * k.theta + blackHole.christoffel(1,2,2,x) * k.phi * k.phi );
-
-    //  phi
+    double M = blackHole.mass;
     
-    double Gamma_ph = - ( 2.0 * blackHole.christoffel(2,0,2,x) * k.r * k.phi +  2.0 * blackHole.christoffel(2,1,2,x) * k.theta * k.phi );
+    // 2. Calcul du rayon et du facteur de Schwarzschild
+    double r2 = x_c*x_c + y_c*y_c + z_c*z_c;
+    double r  = sqrt(r2);
+    double f  = 1.0 - (2.0 * M / r); 
+    
+    // r_dot est la vitesse de variation du rayon (dr/dlambda)
+    // C'est le produit scalaire (Position . Vitesse) / r
+    double r_dot = (x_c * kx + y_c * ky + z_c * kz) / r;
 
-    // t
-    double Gamma_t = - ( 2.0 * blackHole.christoffel(3,0,3,x) * k.r * k.t );
+    // 3. Calcul des accélérations (dk/dlambda)
+    // Ces formules remplacent tous tes anciens calculs de Christoffel
+    
+    // Facteur commun lié à la courbure
+    double A = (M / (r2 * r)) * ( f * kt * kt - (r_dot * r_dot / f) );
+    // Facteur lié à la direction du mouvement
+    double B = (2.0 * M * r_dot) / (r * r * f);
 
-    // nouvel etat
+    // Accélération spatiale (dkx, dky, dkz)
+    // Remplace Gamma_r, Gamma_th, Gamma_ph
+    double dkx = -x_c * A + kx * B;
+    double dky = -y_c * A + ky * B;
+    double dkz = -z_c * A + kz * B;
+
+    // Accélération temporelle (dkt)
+    // Remplace Gamma_t
+    double dkt = -kt * B;
+
+    // 4. Retourne l'état dérivé pour le RK4
     return PhotonState(
-        Vec4(kr, kth, kph, kt),        // dx/dlambda = k
-        Vec4(Gamma_r, Gamma_th, Gamma_ph, Gamma_t) // dk/dlambda = -Gamma*k*k
+        Vec4(kx, ky, kz, kt),          // dx/dlambda = k
+        Vec4(dkx, dky, dkz, dkt)       // dk/dlambda = accélération
     );
 
 }

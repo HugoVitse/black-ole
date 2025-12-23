@@ -5,46 +5,31 @@
 
 Pixel::Pixel(int _i, int _j, int W, int H, double h, Tetrade *tetrade, const Vec4 &camPos) : i(_i), j(_j) {
 
-    //ratio conservé
-    double w = h * W/H;
+    double cam_r = camPos.x;
+    double cam_theta = camPos.y;
+    double cam_phi = camPos.z;
 
-    //on passe à l'interval -w; w
-    double xtmp = ((2.0 * w) / double(W)) * (double(i) - (double(W) / 2.0));
-    double ytmp = ((2.0 * h) / double(H)) * (double(j) - (double(H) / 2.0));
-    double ztmp = 1;
-    
-    
+    double cx = cam_r * sin(cam_theta) * cos(cam_phi);
+    double cy = cam_r * cos(cam_theta); // Y est l'axe vertical
+    double cz = cam_r * sin(cam_theta) * sin(cam_phi);
+    Vec3 pos = Vec3(cx, cy, cz);
 
-    //normalisation
-    double norm = sqrt( (xtmp*xtmp) + (ytmp*ytmp) + (ztmp*ztmp) );
+    // 2. Calcul des vecteurs de vue (LookAt)
+    Vec3 forward = (Vec3(0,0,0) - pos).normalize();
+    Vec3 worldUp = Vec3(0, 1, 0); 
+    Vec3 right = forward.cross(worldUp).normalize();
+    Vec3 up = right.cross(forward).normalize();
 
+    // 3. Direction du rayon (xtmp, ytmp, ztmp)
+    double w = h * (double)W / (double)H;
+    double xtmp = ((2.0 * w) / W) * (i - W / 2.0);
+    double ytmp = ((2.0 * h) / H) * (j - H / 2.0);
+    double ztmp = 1.0; 
 
-    this->k_local = Vec4( -ztmp/norm, ytmp/norm, xtmp/norm, 1 );
-   
+    Vec3 dir = (forward * ztmp + right * xtmp + up * ytmp).normalize();
 
-    //passage au référentiel global (changement de base)
-    Vec4 e0 = *tetrade->e0;
-    Vec4 e1 = *tetrade->e1;
-    Vec4 e2 = *tetrade->e2;
-    Vec4 e3 = *tetrade->e3;
-
-     
-
-    this->k_global =  Vec4(
-        this->k_local * e0,
-        this->k_local * e1,
-        this->k_local * e2,
-        this->k_local * e3
-    );
-
- 
-    //brigad eanti divergence
-    this->photon = Photon(camPos, this->k_global);
-    if (std::abs(std::sin(camPos.theta)) < 1e-5) {
-        this->photon.state.x.y += 1e-6; 
-    }
-    if (this->photon.state.x.theta < 0.001) this->photon.state.x.theta = 0.001;
-    if (this->photon.state.x.theta > M_PI - 0.001) this->photon.state.x.theta = M_PI - 0.001;
+    this->photon.state.x = Vec4(pos.x, pos.y, pos.z, 0.0);
+    this->photon.state.k = Vec4(dir.x, dir.y, dir.z, 1.0);
 }
 
 
@@ -53,150 +38,108 @@ Pixel::Pixel() : r(0), g(0), b(0), i(0), j(0), k_local(0,0,0,0), k_global(0,0,0,
 
 
 void Pixel::castPhoton(const BlackHole &blackhole){
-    // ensure initial photon's 4-momentum is null: g_{μν} k^μ k^ν = 0 (important)
+    // 1. Initialisation de la condition de moment nul (g_uv k^u k^v = 0)
     {
-        const Vec4 &x = this->photon.state.x; // initial position (camera)
-        Vec4 &k = this->photon.state.k;
+        Vec4 &pos = this->photon.state.x; // (x, y, z, t)
+        Vec4 &k = this->photon.state.k;   // (kx, ky, kz, kt)
 
-        double r = x.r;
-        double th = x.theta;
-        double twoM = 2.0 * blackhole.mass;
-        double f = 1.0 - twoM / r; 
+        double r2 = pos.x*pos.x + pos.y*pos.y + pos.z*pos.z;
+        double r = sqrt(r2);
+        double M = blackhole.mass;
+        double f = 1.0 - (2.0 * M / r);
 
+        if (r > 2.0 * M) {
+            // Produit scalaire (Position . K_spatial)
+            double x_dot_k = pos.x * k.x + pos.y * k.y + pos.z * k.z;
+            
+            // En cartésien Schwarzschild, le produit scalaire spatial g_ij k^i k^j est :
+            // (k.k) + (2M / (r^2 * (r - 2M))) * (pos.k)^2
+            double k_dot_k = k.x*k.x + k.y*k.y + k.z*k.z;
+            double spatial_part = k_dot_k + (2.0 * M / (r2 * (r - 2.0 * M))) * (x_dot_k * x_dot_k);
 
-        if (r > twoM && std::abs(f) > 1e-16) {
-            double g_tt = -f;
-            double g_rr = 1.0 / f;
-            double g_thth = r * r;
-            double g_phph = r * r * sin(th) * sin(th);
+            // On résout g_tt kt^2 + spatial_part = 0  => -f*kt^2 + spatial_part = 0
+            double kt = sqrt(spatial_part / f);
 
-            double spatial = g_rr * (k.x * k.x) + g_thth * (k.y * k.y) + g_phph * (k.z * k.z);
-
-            if (spatial >= 0 && -g_tt > 0) {
-                double kt = sqrt(spatial / (-g_tt));
-                //on inverse k car on est en backward raytracing (sauf temp)
-                k.x = -k.x;  
-                k.y = -k.y;  
-                k.z = -k.z;  
-                k.t = kt;    
-            } else {
-                // je met rien ici je men fou
-            }
+            // Inversion pour le backward raytracing
+            k.x = -k.x;  
+            k.y = -k.y;  
+            k.z = -k.z;  
+            k.t = kt;    
         }
     }
 
-    //si le photon se pomme (il peut flotter pendant 1000 ans) on le stop au bout de 2000
     const int maxIter = 2000;
     int iter = 0;
-    
-    // pour accélérer le rendu, on modifie le step en fonction de la distance 
-    // plus on est loin du trou noir plus le comportement du bordel est régulier => pas obligé d'avoir un pas très précis
-    double base_step = 1;
-    double min_step = 0.1;
+    double base_step = 1.0;
+    double min_step = 0.01;
     double max_step = 10.0;
     
-    // debug
-    if(this->i == 0 && this->j == 0) {
-        printf("Pixel (0,0): r_init=%.2f, k_r=%.6f, k_theta=%.6f, k_phi=%.6f, k_t=%.6f\n",
-               this->photon.state.x.x, 
-               this->photon.state.k.x, this->photon.state.k.y, 
-               this->photon.state.k.z, this->photon.state.k.t);
-    }
-    
-    while(this->photon.state.x.x > blackhole.rs && this->photon.state.x.x < blackhole.rmax) {
-        double r = this->photon.state.x.x;
-        double r_before = r;
+    // 2. Boucle d'intégration
+    // On calcule r à chaque fois avec Pythagore
+    double current_r = this->photon.state.x.norm(); 
 
-        //brigade anti divergence
-     
-            
+    while(current_r > blackhole.rs && current_r < blackhole.rmax) {
+        double r_before = current_r; // Utilise current_r, pas r
 
         double step_size;
-        if (r < 10.0 * blackhole.rs) {
-
-            step_size = min_step + (base_step - min_step) * (r - blackhole.rs) / (9.0 * blackhole.rs);
-            step_size = std::max(min_step, std::min(step_size, base_step));
-
-        } else if (r < 100.0 * blackhole.rs) {
+        // On utilise current_r pour le pas adaptatif
+        if (current_r < 10.0 * blackhole.rs) {
+            step_size = min_step + (base_step - min_step) * (current_r - blackhole.rs) / (9.0 * blackhole.rs);
+        } else if (current_r < 100.0 * blackhole.rs) {
             step_size = base_step;
         } else {
-            step_size = std::min(max_step, base_step * (r / (100.0 * blackhole.rs)));
+            step_size = std::min(max_step, base_step * (current_r / (100.0 * blackhole.rs)));
         }
         
         this->photon.RK4step(blackhole, -step_size);
 
-        //brigae antidivegence
-        if (this->photon.state.x.y < 0.0001) this->photon.state.x.y = 0.0001;
-        if (this->photon.state.x.y > M_PI - 0.0001) this->photon.state.x.y = M_PI - 0.0001;
+        // Mise à jour de la distance
+        current_r = this->photon.state.x.norm();
 
-        if (std::abs(this->photon.state.k.r) > 1e4|| std::isnan(this->photon.state.x.x)) { 
+        if (current_r > r_before * 2.0 && r_before < 4.0 * blackhole.rs) {
+            this->photon.state.x = Vec4(0,0,0,0); // On force le noir
+            break; 
+        }
+
+        if (std::isnan(current_r)) {
             if (r_before < 1.5 * blackhole.rs) {
-                this->photon.state.x.x = 0.0; 
+                this->photon.state.x.x = 0.0; // Signal Trou noir
+                this->photon.state.x.y = 0.0;
+                this->photon.state.x.z = 0.0;
             }
             break; 
         }
         
-        // debug
-        if(this->i == 0 && this->j == 0 && iter < 10) {
-            double r_after = this->photon.state.x.x;
-            printf("  iter %d: r %.2f -> %.2f (dr=%.2f), k_r=%.6f\n", 
-                   iter, r_before, r_after, r_after - r_before, this->photon.state.k.x);
-        }
-        
-        // cheese naan
+        // Cheese Naan (NaN protection globale)
         bool anyNan = std::isnan(this->photon.state.x.x) || std::isnan(this->photon.state.x.y)
-                   || std::isnan(this->photon.state.x.z) || std::isnan(this->photon.state.x.t)
-                   || std::isnan(this->photon.state.k.x) || std::isnan(this->photon.state.k.y)
-                   || std::isnan(this->photon.state.k.z) || std::isnan(this->photon.state.k.t);
+                   || std::isnan(this->photon.state.x.z) || std::isnan(this->photon.state.k.x);
 
-        if(anyNan) {
-            // stop integration;
-            break;
-        }
+        if(anyNan) break;
         
-        if(++iter > maxIter) {
-            // safety stop
-            this->r= NAN;
-            break;
-        }
+        if(++iter > maxIter) break;
     }
-
 }
 
-void Pixel::setColor(const BlackHole &blackhole, const Skybox &skybox){
+void Pixel::setColor(const BlackHole &blackhole, const Skybox &skybox) {
+    // 1. Calculer la distance réelle (norme)
+    double x = this->photon.state.x.x;
+    double y = this->photon.state.x.y;
+    double z = this->photon.state.x.z;
+    double r_final = sqrt(x*x + y*y + z*z);
 
-    double multiple = 50.0;
-    // si chicken naban ou sous l'horizon -> Noir
-    if (this->photon.state.x.x <= blackhole.rs) {
-        this->r = 255; this->g = 0; this->b = 0;
+    // 2. NOIR : Si le photon est sous l'horizon (Rayon < rs)
+    if (r_final <= blackhole.rs * 1.001 || std::isnan(r_final)) {
+        this->r = 0; this->g = 0; this->b = 0;
         return;
     }
 
-   
-
-    double theta_final = this->photon.state.x.y;
-    double phi_final   = this->photon.state.x.z;
+    // 3. SKYBOX : Pour tout le reste
+    // On convertit la direction finale en angles pour la texture
+    double theta = acos(y / r_final); 
+    double phi = atan2(z, x);
 
     int resR, resG, resB;
-    skybox.getColor(theta_final, phi_final, resR, resG, resB);
+    skybox.getColor(theta, phi, resR, resG, resB);
     
-    this->r = resR;
-    this->g = resG;
-    this->b = resB;
-
-    return;
-    //old one, starmap automaticaly generated
-    // double star_value = sin(theta_final * multiple) * cos(phi_final * multiple);
-
-    // if (star_value > 0.995) { 
-    //     this->r = 255; this->g = 255; this->b = 255; // Étoile
-    // } else {
-    //     this->r = 255; this->g = 0; this->b = 0; 
-    // }
-    // return;
-    
-
-
+    this->r = resR; this->g = resG; this->b = resB;
 }
-
-

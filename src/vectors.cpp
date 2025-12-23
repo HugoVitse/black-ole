@@ -76,6 +76,21 @@ void Vec3::operator*=(const double &scalar){
 
 }
 
+Vec3 Vec3::normalize() {
+    double n = norm();
+    if (n > 1e-15) {
+        return Vec3(x / n, y / n, z / n);
+    }
+    return Vec3(0, 0, 0); // Évite la division par zéro
+}
+
+Vec3 Vec3::cross(const Vec3 &other) const {
+    return Vec3(
+        y * other.z - z * other.y,
+        z * other.x - x * other.z,
+        x * other.y - y * other.x
+    );
+}
 
 void Vec3::to_string() {
     std::cout << "( " << this->x << " , " << this->y << " , " << this->z << " )" << std::endl;
@@ -190,6 +205,7 @@ const double& Vec4::operator[](int indx) const {
         throw std::invalid_argument( "received shitty value" );
     }
 }
+
 
 
 void Vec4::to_string() {
