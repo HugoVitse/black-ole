@@ -13,6 +13,7 @@ set(SOURCES
     src/main.cpp
     src/vectors.cpp
     #src/blackhole.cpp
+    src/skybox.cpp
     src/photon.cpp
     src/image.cpp
     src/pixel.cpp

@@ -10,7 +10,7 @@
 #include <mutex>
 
 // nombre de threads 
-int Image::nb_threads = std::max(1u, std::thread::hardware_concurrency());
+int Image::nb_threads = 2*std::max(1u, std::thread::hardware_concurrency());
 
 // mutex pour les threads
 static std::mutex progress_mutex;
@@ -22,18 +22,18 @@ Image::Image(int _W, int _H, double FOV, const Vec4 &camPos) : W(_W), H(_H), tet
 
 
 
-void Image::computeRow(const BlackHole &blackhole, int start_y, int end_y, const Vec4 &camPos) {
+void Image::computeRow(const BlackHole &blackhole, const Skybox &skybox, int start_y, int end_y, const Vec4 &camPos) {
     for(int j = start_y; j < end_y; j++) {
         for(int i = 0; i < this->W; i++) {
             int index = j * W + i;
             pixels[index] = Pixel(i, j, W, H, h, &tetrade, camPos);
             pixels[index].castPhoton(blackhole);
-            pixels[index].setColor(blackhole);
+            pixels[index].setColor(blackhole, skybox);
         }
     }
 }
 
-void Image::computeImage(const BlackHole &blackhole, const Vec4 &camPos) {
+void Image::computeImage(const BlackHole &blackhole, const Skybox &skybox, const Vec4 &camPos) {
     std::cout << "Rendu en cours avec " << nb_threads << " threads..." << std::endl;
     
     threads.clear();
@@ -47,6 +47,7 @@ void Image::computeImage(const BlackHole &blackhole, const Vec4 &camPos) {
             &Image::computeRow, 
             this, 
             std::cref(blackhole), 
+            std::cref(skybox),
             start_y, 
             end_y, 
             std::cref(camPos)

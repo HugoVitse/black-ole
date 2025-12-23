@@ -1,6 +1,7 @@
 #include "pixel.hpp"
 #include <cmath>
 #include <stdio.h>
+#include "skybox.hpp"
 
 Pixel::Pixel(int _i, int _j, int W, int H, double h, Tetrade *tetrade, const Vec4 &camPos) : i(_i), j(_j) {
 
@@ -129,7 +130,7 @@ void Pixel::castPhoton(const BlackHole &blackhole){
         if (this->photon.state.x.y > M_PI - 0.0001) this->photon.state.x.y = M_PI - 0.0001;
 
         if (std::abs(this->photon.state.k.r) > 1e4|| std::isnan(this->photon.state.x.x)) { 
-            if (r_before < 2.0 * blackhole.rs) {
+            if (r_before < 1.5 * blackhole.rs) {
                 this->photon.state.x.x = 0.0; 
             }
             break; 
@@ -162,12 +163,12 @@ void Pixel::castPhoton(const BlackHole &blackhole){
 
 }
 
-void Pixel::setColor(const BlackHole &blackhole){
+void Pixel::setColor(const BlackHole &blackhole, const Skybox &skybox){
 
     double multiple = 50.0;
     // si chicken naban ou sous l'horizon -> Noir
     if (this->photon.state.x.x <= blackhole.rs) {
-        this->r = 0; this->g = 0; this->b = 0;
+        this->r = 255; this->g = 0; this->b = 0;
         return;
     }
 
@@ -176,14 +177,23 @@ void Pixel::setColor(const BlackHole &blackhole){
     double theta_final = this->photon.state.x.y;
     double phi_final   = this->photon.state.x.z;
 
-    double star_value = sin(theta_final * multiple) * cos(phi_final * multiple);
+    int resR, resG, resB;
+    skybox.getColor(theta_final, phi_final, resR, resG, resB);
+    
+    this->r = resR;
+    this->g = resG;
+    this->b = resB;
 
-    if (star_value > 0.995) { 
-        this->r = 255; this->g = 255; this->b = 255; // Étoile
-    } else {
-        this->r = 255; this->g = 0; this->b = 0; 
-    }
     return;
+    //old one, starmap automaticaly generated
+    // double star_value = sin(theta_final * multiple) * cos(phi_final * multiple);
+
+    // if (star_value > 0.995) { 
+    //     this->r = 255; this->g = 255; this->b = 255; // Étoile
+    // } else {
+    //     this->r = 255; this->g = 0; this->b = 0; 
+    // }
+    // return;
     
 
 

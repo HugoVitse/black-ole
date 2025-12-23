@@ -3,6 +3,8 @@
 #include "vectors.hpp"
 #include "photon.hpp"
 #include "blackhole.hpp"
+#include "skybox.hpp"
+
 
 struct Pixel {
     char r,g,b;
@@ -18,5 +20,5 @@ struct Pixel {
     Pixel();
     
     void castPhoton(const BlackHole &blackhole);
-    void setColor(const BlackHole &blackhole);
+    void setColor(const BlackHole &blackhole, const Skybox &skybox);
 };

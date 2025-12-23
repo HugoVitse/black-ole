@@ -12,6 +12,9 @@ int main(int argc, char** argv) {
     const int nb_frames = 120; // 5 secondes à 24 fps
 
     BlackHole* bh = new BlackHole(1);
+    Skybox* sb = new Skybox();
+    sb->load("assets/skybox2.ppm");
+
 
     const double tour = PI/12;
  
@@ -22,15 +25,15 @@ int main(int argc, char** argv) {
         Vec4 camPos(10.0, PI/2, angle, 0);
         
         // résolution
-        const int W = 800;
-        const int H = 450;
+        const int W = 8000;
+        const int H = 4000;
         double FOV = PI/3; 
         
         Image* image = new Image(W, H, FOV, camPos);
         
         char filename[64];
         sprintf(filename, "output/frame_%03d.ppm", f);
-        image->computeImage(*bh, camPos);
+        image->computeImage(*bh, *sb, camPos);
         image->saveImage(filename);
         
 

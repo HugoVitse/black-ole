@@ -1,6 +1,8 @@
 /build
 *.ppm
+!skybox2.ppm
 *.mp4
 .vscode
 perf.*
 flamegraph.svg
+rendu_fix.png
