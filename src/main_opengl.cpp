@@ -12,8 +12,8 @@
 
 #include <vector>
 
-const int W = 3840;
-const int H = 2160;
+const int W = 1920;
+const int H = 1080;
 
 GLuint screenTex;
 GLuint computeProgram;
@@ -202,7 +202,7 @@ int main() {
         // Dans ta boucle de rendu
         float time = glfwGetTime();
         float dist = 15.0f;
-        float speed = 0.2f; // Vitesse de rotation
+        float speed = 0.05f; // Vitesse de rotation
         
         // Coordonnées sphériques (r, theta, phi)
         // On fait varier phi (l'angle horizontal) avec le temps
