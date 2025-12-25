@@ -12,8 +12,11 @@
 
 #include <vector>
 
-const int W = 1920;
-const int H = 1080;
+const int RENDER_W = 4096;
+const int RENDER_H = 2160;
+
+const int WINDOW_W = 1280;
+const int WINDOW_H = 720;
 
 GLuint screenTex;
 GLuint computeProgram;
@@ -23,24 +26,24 @@ GLuint skyboxTexID;
 
 void saveImage(const char* filename) {
     // 1. On alloue de la mémoire CPU pour recevoir l'image (W * H * 3 canaux RGB)
-    std::vector<unsigned char> pixels(W * H * 3);
+    std::vector<unsigned char> pixels(RENDER_W * RENDER_H * 3);
 
+    glBindTexture(GL_TEXTURE_2D, screenTex);
     // 2. On configure OpenGL pour aligner les bytes correctement
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
 
-    // 3. On lit les pixels de l'écran (GPU -> CPU)
-    // On lit depuis le Framebuffer affiché actuellement
-    glReadPixels(0, 0, W, H, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
-
-    // 4. OpenGL a l'origine en bas à gauche, PNG en haut à gauche. On inverse.
+    // 4. Flip et écriture (inchangé)
     stbi_flip_vertically_on_write(true);
-
-    // 5. On écrit le fichier PNG
-    if (stbi_write_png(filename, W, H, 3, pixels.data(), W * 3)) {
-        std::cout << "CAPTURE SAUVEGARDEE : " << filename << std::endl;
+    if (stbi_write_png(filename, RENDER_W, RENDER_H, 3, pixels.data(), RENDER_W * 3)) {
+        std::cout << "IMAGE 4K SAUVEGARDEE : " << filename << std::endl;
     } else {
-        std::cerr << "ERREUR lors de la sauvegarde de " << filename << std::endl;
+        std::cerr << "ERREUR sauvegarde" << std::endl;
     }
+}
+
+void MyKeyboardFunc(unsigned char Key, int x, int y)
+{
+ 
 }
 
 GLuint loadTexture(const char* path) {
@@ -110,7 +113,7 @@ void initOpenGL() {
     glGenTextures(1, &screenTex);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, screenTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, W, H, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, RENDER_W, RENDER_H, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glBindImageTexture(0, screenTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
@@ -184,9 +187,13 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(W, H, "BlackHole Linux GPU", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WINDOW_W, WINDOW_H, "BlackHole Linux GPU", NULL, NULL);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    glfwSwapInterval(0); // FPS illimités
 
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) { std::cerr << "Erreur GLEW" << std::endl; return -1; }
@@ -194,24 +201,138 @@ int main() {
     initOpenGL();
     std::cout << "Moteur GPU initialise sur Linux." << std::endl;
 
+    // --- SOURIS 2 : Variables d'état ---
+    float camR = 6.0f;
+    float camTheta = 1.37f; // PI/2 (Vue de face)
+    float camPhi = 2.6f;    // Angle horizontal
+
+    float viewYaw = 3.107012f;   // Gauche/Droite
+    float viewPitch = 0.088906f; // Haut/Bas
+
+    float fov = 1.0f;
+        
+    // Pour calculer le mouvement de la souris
+    double lastX = WINDOW_W / 2.0;
+    double lastY = WINDOW_H / 2.0;
+    bool firstMouse = true; // Pour éviter un saut brusque au démarrage
+    float sensitivity = 0.005f; // Vitesse de la souris
+
     int screenshotCount = 0; // Pour nommer les fichiers img_0.png, img_1.png...
   
     GLint camPosLoc = glGetUniformLocation(computeProgram, "camPos");
-    while (!glfwWindowShouldClose(window)) {
-        // --- ETAPE 1 : CALCUL (Compute Shader) ---
+    GLint viewAnglesLoc = glGetUniformLocation(computeProgram, "viewAngles");
+    GLint timeLoc = glGetUniformLocation(computeProgram, "time");
+    GLint fovLoc = glGetUniformLocation(computeProgram, "fov");
+
+    bool mouse = false;
+    int count = 0;
+    bool keyboard = true;
+    while (!glfwWindowShouldClose(window) && count <= 600) {
         // Dans ta boucle de rendu
-        float time = glfwGetTime();
-        float dist = 15.0f;
-        float speed = 0.05f; // Vitesse de rotation
-        
-        // Coordonnées sphériques (r, theta, phi)
-        // On fait varier phi (l'angle horizontal) avec le temps
-        float camR = dist;
-        float camTheta = 1.57f; // PI/2 (Plan équatorial)
-        float camPhi = time * speed;
+      
+
+        if(keyboard) {
+            if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS){
+                fov -= 0.1f;
+                if (fov < 0.1f) fov = 0.1f; // Max Zoom (Télescope)
+            }
+            // E pour Dézoomer (augmenter le FOV)
+            if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS){
+                fov += 0.1f;
+                if (fov > 2.0f) fov = 2.0f; // Max Grand Angle (Fish-eye)
+            }
+            if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){         
+
+                camR-=0.1;
+                
+            }
+
+            if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
+
+                camR+=0.1;
+            }
+            if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
+
+                camTheta+=0.1;
+            }
+
+            if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
+
+                camTheta-=0.1;
+            }
+
+            if(glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS){
+
+                camPhi+=0.1;
+            }
+
+            if(glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS){
+
+                camPhi-=0.1;
+            }
+        }
+        if(mouse) {
+
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+    
+            if (firstMouse) {
+                lastX = xpos;
+                lastY = ypos;
+                firstMouse = false;
+            }
+    
+            // Calcul du décalage
+            float xoffset = (float)(xpos - lastX);
+            float yoffset = (float)(ypos - lastY); 
+            
+            lastX = xpos;
+            lastY = ypos;
+    
+       
+            viewYaw += xoffset * sensitivity;  // - pour inverser la rotation (naturel)
+            viewPitch += yoffset * sensitivity;
+            if (viewPitch > 1.5f) viewPitch = 1.5f;
+            if (viewPitch < -1.5f) viewPitch = -1.5f;
+
+       
+            
+                
+            printf("camR : %f\n", camR);
+            printf("camTheta : %f\n", camTheta);
+            printf("camR : %f\n", camPhi);
+            printf("viewPitch : %f\n", viewPitch);
+            printf("viewYaw : %f\n", viewYaw);
+            printf("fov : %f\n", fov);
+
+            
+        }
+        else {
+    
+            float time = glfwGetTime();
+            float speed = 0.000015f; // Vitesse de rotation
+            printf("camphi avant : %f\n", camPhi);
+
+            camPhi = camPhi + time * speed;
+            printf("camphi après : %f\n", camPhi);
+
+                
+            // float dist = 6.0f;
+            // float camR = dist;
+
+        }
+
+        printf("time : %f\n", (float)glfwGetTime());
+             
+  
         glUseProgram(computeProgram);
 
+        glUniform1f(fovLoc, fov);
+        glUniform1f(timeLoc, (float)glfwGetTime());
+
         glUniform3f(camPosLoc, camR, camTheta, camPhi);
+        glUniform2f(viewAnglesLoc, viewYaw, viewPitch);
+
         // Lier la skybox sur l'unité 1
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, skyboxTexID);
@@ -221,11 +342,11 @@ int main() {
         glUniform1i(glGetUniformLocation(computeProgram, "skybox"), 1);
 
         // On lance (W/8, H/8) groupes de travail de 8x8 pixels
-        glDispatchCompute((W + 7) / 8, (H + 7) / 8, 1);
+        glDispatchCompute((RENDER_W + 7) / 8, (RENDER_H + 7) / 8, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
         // --- ETAPE 2 : AFFICHAGE ---
-        glViewport(0, 0, W, H); 
+        glViewport(0, 0, WINDOW_W, WINDOW_H); 
         glClear(GL_COLOR_BUFFER_BIT);
         
         glUseProgram(displayProgram);
@@ -241,6 +362,7 @@ int main() {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+        count+=1;
     }
 
     glfwTerminate();
