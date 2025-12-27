@@ -1,28 +1,26 @@
 #version 430 core
 
 
+// threads sur gpu
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // 2d image qu'on affiche
 layout(rgba32f, binding = 0) uniform image2D imgOutput;
 
-// milkyway equirectangular picture
-uniform sampler2D skybox;
-uniform vec2 viewAngles;
-uniform float time;
+// uniforms variables envoyées depuis C++
+uniform sampler2D skybox; // texture skybox
+uniform vec2 viewAngles; //camera
+uniform float time; 
 uniform float fov;
+uniform vec3 camPos;
 
 
+//constantes
 #define M_PI 3.14159265358979323846
 #define RS 2.0         // rayon de Schwarzschild
 #define RMAX 100.0     // Distance max avant de stop
 
-
-uniform vec3 camPos;
-
-
 //disque d'accrétion
-
 #define DISK_INNER 2.6 
 #define DISK_OUTER 6.0 // Taille du disque
 #define DISK_COLOR vec3(1.0, 0.8, 0.6) // Couleur de base (a voir si réaliste physiquement)
@@ -33,22 +31,21 @@ struct Photon {
     vec4 k; // kr, ktheta, kphi, kt
 };
 
-mat3 rotateY(float angle) { // Tourner gauche/droite (Yaw)
+
+// camera rotations
+mat3 rotateY(float angle) { 
     float c = cos(angle); float s = sin(angle);
     return mat3(c, 0, s,  0, 1, 0,  -s, 0, c);
 }
-mat3 rotateX(float angle) { // Tourner haut/bas (Pitch)
+mat3 rotateX(float angle) { 
     float c = cos(angle); float s = sin(angle);
     return mat3(1, 0, 0,  0, c, -s,  0, s, c);
 }
 
 
-//bruit simple pour le disque
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
 
-//new noise
+
+//iq noise for accretion disc
 float noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
@@ -63,18 +60,17 @@ float noise(vec2 p) {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
+//mouvement brownien
+// iq noise and fbm are inspired by the following  https://iquilezles.org/articles/morenoise/
 float fbm(vec2 p) {
     float value = 0.0;
-    float amp = 0.5; // Amplitude de départ
-    float freq = 1.0; // Fréquence de départ
+    float amp = 0.5; 
+    float freq = 1.0; 
     
-    // On fait 4 passes (Octaves)
-    // Plus y'en a, plus c'est détaillé, mais plus c'est lourd pour la 1050 Ti
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 8; i++) {
         value += noise(p * freq) * amp;
-        freq *= 2.1;  // On augmente la fréquence (détails plus fins)
-        amp *= 0.5;   // On baisse l'amplitude (détails moins visibles)
-        // Petit décalage pour éviter les symétries moches
+        freq *= 2.1;  
+        amp *= 0.5;   
         p += vec2(1.3, 2.4); 
     }
     return value;
@@ -82,66 +78,58 @@ float fbm(vec2 p) {
 
 // get color pour le disque
 vec4 getDiskColor(float r, float phi, float k_phi) {
-    // dégradé
 
-    
     float rotationSpeed = 6.0 / pow(r, 2.5 );
     float movingPhi = phi - time * rotationSpeed;
-    
-    // --- TEXTURE DE NUAGES ---
-    // Coordonnées de texture (UV)
-    // Astuce : On multiplie phi par 3.0 mais r par 1.0
-    // Ça "étire" les nuages en arc de cercle (effet traînée)
+ 
     vec2 cloudUV = vec2(r * 2.0, movingPhi * 3.0);
-    
-    // On génère le nuage (c'est ici que la magie opère)
-    // On ajoute 'time' dans le 2ème paramètre pour que le gaz "bouillonne" un peu sur lui-même
     float cloud = fbm(cloudUV + vec2(time * 0.2, 0.0));
-    
-    // On contraste le nuage pour avoir des zones vides et des zones denses
-    // (technique du "remapping")
+
     cloud = smoothstep(0.1, 0.9, cloud);
 
-    // On ajoute des anneaux subtils par dessus
+
     float rings = sin(r * 15.0) * 0.2 + 0.8;
     float pattern = mix(cloud, cloud * rings, 0.3); // 70% nuage, 30% anneaux
     pattern = pattern * 0.9 + 0.1;
 
-    // --- COULEUR & DOPPLER (Quasar Style) ---
+ 
     float intensity = 2.5 / (r - RS + 0.5); 
     float velocity = 3.5 / sqrt(r); 
     float shift = k_phi * velocity * 0.3; 
 
-    // Palette Bleu/Blanc
+    // bleu -> chaud
     // vec3 colorHot  = vec3(0.9, 0.95, 1.0); 
-    // vec3 colorBase = vec3(0.1, 0.4, 1.0); // Bleu profond
-    // vec3 colorCold = vec3(0.1, 0.0, 0.2); // Violet sombre
+    // vec3 colorBase = vec3(0.1, 0.4, 1.0); 
+    // vec3 colorCold = vec3(0.1, 0.0, 0.2); 
 
-    // Orange
-    vec3 colorHot  = vec3(0.8, 0.9, 1.0);  // Blanc chaud (Blueshift max)
-    vec3 colorBase = vec3(1.0, 0.55, 0.1); // Orange brûlé (Couleur réelle)
-    vec3 colorCold = vec3(0.4, 0.05, 0.0); // Rouge sang (Redshift)
+    // oeange moins réaliste
+    vec3 colorHot  = vec3(0.8, 0.9, 1.0); 
+    vec3 colorBase = vec3(1.0, 0.55, 0.1); 
+    vec3 colorCold = vec3(0.4, 0.05, 0.0);
 
     vec3 col;
-    if (shift < 0.0) { // Blueshift
+
+
+    //doppler effect
+    if (shift < 0.0) { // blueshift
         float factor = clamp(abs(shift) * 1.5, 0.0, 1.0);
         col = mix(colorBase, colorHot, factor);
         intensity *= (1.0 + factor * 2.5); 
-    } else { // Redshift
+    } else { // redshift
         float factor = clamp(shift * 1.5, 0.0, 1.0);
         col = mix(colorBase, colorCold, factor);
         intensity *= (1.0 - factor * 0.7);
     }
 
-    // On applique le motif nuageux
     col *= pattern;
-    
-    // Bords doux
+
     float edgeFade = smoothstep(DISK_OUTER, DISK_OUTER - 3.0, r);
     float alpha = clamp(intensity * pattern * edgeFade, 0.0, 0.98);
 
     return vec4(col * intensity, alpha);
 }
+
+
 //equivalent de la fonction F
 // TODO renomer ca F dcp et implémenter le switch cristofel
 Photon computeDerivatives(vec4 x, vec4 k) {
@@ -262,7 +250,8 @@ void main() {
 
         //detection de traversage de disque
         if ((prevTheta - M_PI/2.0) * (x.y - M_PI/2.0) < 0.0) {
-            
+
+           
             float factor = abs(prevTheta - M_PI/2.0) / abs(x.y - prevTheta);
             float r_cross = mix(prevR, x.x, factor);
 
