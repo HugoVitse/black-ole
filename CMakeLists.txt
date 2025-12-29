@@ -1,3 +1,5 @@
+#global
+
 cmake_minimum_required(VERSION 3.21)
 project(black++ole VERSION 1.0 LANGUAGES CXX)
 
@@ -9,10 +11,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Include directories
 include_directories(include)
 
-file(GLOB CPU_SOURCES "src/*.cpp")
 
-list(FILTER CPU_SOURCES EXCLUDE REGEX ".*main_opengl\\.cpp$")
 
+#cpu 
+file(GLOB CPU_SOURCES "src/cpu/*.cpp")
 add_executable(black++ole ${CPU_SOURCES})
 
 # Performance: enable high optimization and OpenMP if available
@@ -29,18 +31,18 @@ if(OpenMP_CXX_FOUND)
     target_link_libraries(black++ole PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
-# Optionnel : lier des librairies
-# target_link_libraries(MyProject PRIVATE SomeLib)
+
+
+#gpu
 
 
 #opengl
-
 find_package(glfw3 REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
 
-# On crée l'exécutable GPU avec SEULEMENT le fichier pilote pour l'instant
-add_executable(blackhole_gpu src/main_opengl.cpp)
+file(GLOB GPU_SOURCES "src/gpu/*.cpp")
+add_executable(blackhole_gpu ${GPU_SOURCES})
 
 if(WIN32)
     target_link_libraries(blackhole_gpu glfw GLEW::GLEW opengl32)
@@ -53,6 +55,6 @@ endif()
 # Commande pour copier le shader dans le dossier de build
 add_custom_command(TARGET blackhole_gpu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_SOURCE_DIR}/src/raytracer.glsl"
+    "${CMAKE_SOURCE_DIR}/src/gpu/raytracer.glsl"
     "$<TARGET_FILE_DIR:blackhole_gpu>/raytracer.glsl"
 )

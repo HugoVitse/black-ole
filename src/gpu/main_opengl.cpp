@@ -12,11 +12,11 @@
 #include "stb_image_write.h"
 
 
-const int RENDER_W = 1280;
-const int RENDER_H = 720;
+const int RENDER_W = 800;
+const int RENDER_H = 480;
 
-const int WINDOW_W = 1280;
-const int WINDOW_H = 720;
+const int WINDOW_W = 800;
+const int WINDOW_H = 480;
 
 GLuint screenTex;
 GLuint computeProgram;
@@ -32,7 +32,7 @@ void saveImage(const char* filename) {
 
     stbi_flip_vertically_on_write(true);
     if (stbi_write_png(filename, RENDER_W, RENDER_H, 3, pixels.data(), RENDER_W * 3)) {
-        std::cout << "IMAGE 4K SAUVEGARDEE : " << filename << std::endl;
+        std::cout << "IMAGE SAUVEGARDEE : " << filename << std::endl;
     } else {
         std::cerr << "ERREUR sauvegarde" << std::endl;
     }
@@ -92,6 +92,8 @@ GLuint createShader(const char* sourceCode, GLenum type) {
 }
 
 void initOpenGL() {
+
+    //creating image
     glGenTextures(1, &screenTex);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, screenTex);
@@ -100,24 +102,30 @@ void initOpenGL() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glBindImageTexture(0, screenTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
+
+    //shader creation
     std::string csSrc = loadFile("raytracer.glsl");
     GLuint cs = createShader(csSrc.c_str(), GL_COMPUTE_SHADER);
     computeProgram = glCreateProgram();
     glAttachShader(computeProgram, cs);
     glLinkProgram(computeProgram);
 
+    
+    //defining rectangle in which we print pixels
 
+    //vertex
     const char* vsCode = R"(
         #version 330 core
         layout (location = 0) in vec2 aPos;
         layout (location = 1) in vec2 aTexCoord;
         out vec2 TexCoord;
         void main() {
-            gl_Position = vec4(aPos, 0.0, 1.0);
-            TexCoord = aTexCoord;
+            TexCoord = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+            gl_Position = vec4(TexCoord * 2.0 - 1.0, 0.0, 1.0);
         }
     )";
   
+    // our final texture printed on fragment shader
     const char* fsCode = R"(
         #version 330 core
         out vec4 FragColor;
@@ -127,6 +135,8 @@ void initOpenGL() {
             FragColor = texture(screenTexture, TexCoord);
         }
     )";
+
+
     GLuint vs = createShader(vsCode, GL_VERTEX_SHADER);
     GLuint fs = createShader(fsCode, GL_FRAGMENT_SHADER);
     displayProgram = glCreateProgram();
@@ -134,26 +144,7 @@ void initOpenGL() {
     glAttachShader(displayProgram, fs);
     glLinkProgram(displayProgram);
 
-    float vertices[] = {
-        
-        -1.0f,  1.0f,   0.0f, 1.0f,
-        -1.0f, -1.0f,   0.0f, 0.0f,
-         1.0f, -1.0f,   1.0f, 0.0f,
-
-        -1.0f,  1.0f,   0.0f, 1.0f,
-         1.0f, -1.0f,   1.0f, 0.0f,
-         1.0f,  1.0f,   1.0f, 1.0f
-    };
-    unsigned int VBO;
     glGenVertexArrays(1, &quadVAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(quadVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
     skyboxTexID = loadTexture("../assets/milkyway.png");
 }
@@ -170,7 +161,6 @@ int main() {
     glfwMakeContextCurrent(window);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
     glfwSwapInterval(0); // Fps
 
     glewExperimental = GL_TRUE;
@@ -181,18 +171,16 @@ int main() {
     float camR = 6.0f;
     float camTheta = 1.37f; 
     float camPhi = 2.6f;    
-
     float viewYaw = 3.107012f;   
     float viewPitch = 0.088906f;
-
-    float fov = 1.0f;
-        
+    float fov = 1.0f;     
     double lastX = WINDOW_W / 2.0;
     double lastY = WINDOW_H / 2.0;
     bool firstMouse = true; 
     float sensitivity = 0.005f; 
 
-    int screenshotCount = 0; 
+    int frameCount = 0; 
+
     GLint camPosLoc = glGetUniformLocation(computeProgram, "camPos");
     GLint viewAnglesLoc = glGetUniformLocation(computeProgram, "viewAngles");
     GLint timeLoc = glGetUniformLocation(computeProgram, "time");
@@ -290,23 +278,20 @@ int main() {
 
         }
 
-        printf("time : %f\n", (float)glfwGetTime());
-             
-  
+
         glUseProgram(computeProgram);
 
         glUniform1f(fovLoc, fov);
         glUniform1f(timeLoc, (float)glfwGetTime());
-
         glUniform3f(camPosLoc, camR, camTheta, camPhi);
         glUniform2f(viewAnglesLoc, viewYaw, viewPitch);
+        glUniform1i(glGetUniformLocation(computeProgram, "skybox"), 1);
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, skyboxTexID);
 
         
-        glUniform1i(glGetUniformLocation(computeProgram, "skybox"), 1);
-
+        
         glDispatchCompute((RENDER_W + 7) / 8, (RENDER_H + 7) / 8, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
@@ -319,9 +304,10 @@ int main() {
         glActiveTexture(GL_TEXTURE0); 
         glBindTexture(GL_TEXTURE_2D, screenTex);
         
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(quadVAO); // VAO vide
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        std::string filename = "../output_gpu/render_" + std::to_string(screenshotCount++) + ".png";
+        std::string filename = "../output_gpu/render_" + std::to_string(frameCount++) + ".png";
         saveImage(filename.c_str());
 
         glfwSwapBuffers(window);
