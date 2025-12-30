@@ -4,6 +4,15 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <math.h>
+#include <fstream>
+#include <cmath>
+#include <thread>
+#include <functional>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+#include <mutex>
 
 struct Image {
 

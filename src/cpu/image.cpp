@@ -1,13 +1,4 @@
 #include "image.hpp"
-#include <math.h>
-#include <fstream>
-#include <cmath>
-#include <thread>
-#include <functional>
-#include <vector>
-#include <algorithm>
-#include <iostream>
-#include <mutex>
 
 // nombre de threads 
 int Image::nb_threads = 2*std::max(1u, std::thread::hardware_concurrency());
