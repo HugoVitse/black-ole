@@ -5,13 +5,13 @@ struct Photon {
 
 
 
-Photon F(vec4 x, vec4 k, BlackHole blackhole) {
-
-   
-    float dkr =  -(christoffel(0,0,0,x,blackhole) * k.x * k.x + christoffel(0,1,1,x,blackhole) * k.y * k.y +  christoffel(0,2,2,x,blackhole) * k.z * k.z +  christoffel(0,3,3,x,blackhole) * k.w * k.w);
-    float dkth = - ( 2.0 * christoffel(1,0,1,x,blackhole) * k.x * k.y + christoffel(1,2,2,x, blackhole) * k.z * k.z );
-    float dkph = - ( 2.0 * christoffel(2,0,2,x, blackhole) * k.x * k.z +  2.0 * christoffel(2,1,2,x,blackhole) * k.y * k.z );
-    float dkt  = - ( 2.0 * christoffel(3,0,3,x,blackhole) * k.x * k.w);
+Photon F(inout vec4 x, inout vec4 k, inout BlackHole blackhole) {
+ 
+      
+    float dkr =  -( getChristoffel(0,0,0,x) * k.x * k.x + getChristoffel(0,1,1,x) * k.y * k.y +  getChristoffel(0,2,2,x) * k.z * k.z +  getChristoffel(0,3,3,x) * k.w * k.w);
+    float dkth = - ( 2.0 * getChristoffel(1,0,1,x) * k.x * k.y + getChristoffel(1,2,2,x) * k.z * k.z );
+    float dkph = - ( 2.0 * getChristoffel(2,0,2,x) * k.x * k.z +  2.0 * getChristoffel(2,1,2,x) * k.y * k.z );
+    float dkt  = - ( 2.0 * getChristoffel(3,0,3,x) * k.x * k.w);
 
     Photon p;
     p.x = vec4(k.x, k.y, k.z, k.w);    // dx/dt = k
@@ -20,7 +20,7 @@ Photon F(vec4 x, vec4 k, BlackHole blackhole) {
 }
 
 
-void RK4step(BlackHole blackhole, float h, inout Photon photon) {
+void RK4step(inout BlackHole blackhole, float h, inout Photon photon) {
 
     Photon p = Photon(photon.x, photon.k);
     Photon k1 = F(p.x, p.k, blackhole);
@@ -37,6 +37,4 @@ void RK4step(BlackHole blackhole, float h, inout Photon photon) {
 
     photon.x += (k1.x + k2.x*2.0 + k3.x*2.0 + k4.x) * (h/6.0);
     photon.k += (k1.k + k2.k*2.0 + k3.k*2.0 + k4.k) * (h/6.0);
-
-
 }

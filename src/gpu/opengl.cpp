@@ -135,15 +135,30 @@ void OpenGL::initOpenGL() {
 
     
     std::string blackHoleCode = loadFile("blackhole.glsl");
+    std::string accretionDiskCode = loadFile("accretionDisk.glsl");
+
+    std::string tetradeCode = loadFile("tetrade.glsl");
+    std::string pixelCode = loadFile("pixel.glsl");
+
     std::string photonCode = loadFile("photon.glsl"); 
     std::string mainCode = loadFile("raytracer.glsl"); 
+    std::string metricCode = loadFile("metric.glsl");
+
+
+    std::string variablesCode = loadFile("variables.glsl");
+    std::string realMaincode = loadFile("main.glsl");
+
 
     const std::vector<std::string> sources = {
         version,
         blackHoleCode,
+        tetradeCode,
+        metricCode,
         photonCode,
-        mainCode,
-           
+        pixelCode,
+        accretionDiskCode,
+        variablesCode,
+        realMaincode
     };
 
     GLuint cs = this->createComputeShader(sources,GL_COMPUTE_SHADER);

@@ -24,9 +24,13 @@ int main() {
     GLint timeLoc = glGetUniformLocation(opengl.computeProgram, "time");
     GLint fovLoc = glGetUniformLocation(opengl.computeProgram, "fov");
     GLint skyboxLoc = glGetUniformLocation(opengl.computeProgram, "skybox");
+    GLint massLoc = glGetUniformLocation(opengl.computeProgram, "mass");
+
     
     bool mouse = false;
     bool keyboard = true;
+
+    float mass = 0.0f;
     
     
     int count = 0;
@@ -37,7 +41,8 @@ int main() {
         if(mouse)    camera.mouseMoveCam(opengl);
         else         camera.autoMoveCam();
 
-
+        mass += 0.005;
+        if(mass>=1.0) mass=1.0;
 
         //phase 1 : compute pixel with cpu parameters
 
@@ -45,6 +50,8 @@ int main() {
 
         //params
         glUniform1f(fovLoc, camera.fov);
+        glUniform1f(massLoc, mass);
+
         glUniform1f(timeLoc, (float)glfwGetTime());
         glUniform3f(camPosLoc, camera.camR, camera.camTheta, camera.camPhi);
         glUniform2f(viewAnglesLoc, camera.viewYaw, camera.viewPitch);
