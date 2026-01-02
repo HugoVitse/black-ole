@@ -1,5 +1,4 @@
 
-
 struct Pixel {
     vec3 color;
     int i;
@@ -22,7 +21,7 @@ mat3 rotateX(float angle) {
 #define M_PI 3.14159265358979323846
 
 
-void initPixel(inout Pixel pixel, float h, vec3 camPos, image2D imgOutput, vec2 viewAngles, float fov, inout Tetrade tetrade){
+void initPixel(inout Pixel pixel, float h, vec3 camPos, image2D imgOutput, vec2 viewAngles, float fov, inout Tetrade tetrade, inout BlackHole blackhole){
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
     ivec2 dims = imageSize(imgOutput);
 
@@ -32,6 +31,7 @@ void initPixel(inout Pixel pixel, float h, vec3 camPos, image2D imgOutput, vec2 
 
     float W = dims.x;
     float H = dims.y;
+
 
     float w = h * W/H;
 
@@ -53,21 +53,18 @@ void initPixel(inout Pixel pixel, float h, vec3 camPos, image2D imgOutput, vec2 
 
     vec4 x = vec4(camPos, 0.0);
 
-    vec4 k_global =  vec4(
-        dot(k_local,tetrade.e0),
-        dot(k_local,tetrade.e1),
-        dot(k_local,tetrade.e2),
-        0.0
-    );
+    vec4 k_global = k_local.x * tetrade.e0 + k_local.y * tetrade.e1 + k_local.z * tetrade.e2 +  k_local.w*tetrade.e3;
+    
+       
 
     pixel.photon.k = k_global;
     pixel.photon.x = x;
 
 
-    // // ensure initial photon's 4-momentum is null: g_{μν} k^μ k^ν = 0 (important)
+    // ensure initial photon's 4-momentum is null: g_{μν} k^μ k^ν = 0 (important)
     // float f = 1.0 - blackhole.rs/x.x;
-    // float spatial = (1.0/f)*k.x*k.x + x.x*x.x*k.y*k.y + x.x*x.x*sin(x.y)*sin(x.y)*k.z*k.z;
-    // k.w = sqrt(spatial / f);
+    // float spatial = (1.0/f) * pixel.photon.k.x * pixel.photon.k.x + pixel.photon.x.x * pixel.photon.x.x * pixel.photon.k.y*pixel.photon.k.y + pixel.photon.x.x*pixel.photon.x.x * sin(pixel.photon.x.y)*sin(pixel.photon.x.y)*pixel.photon.k.z*pixel.photon.k.z;
+    
 }
 
 
@@ -75,10 +72,18 @@ void castPhoton() {
 
 }
 
-void setColor(bool hitHorizon, float transmittance, vec4 finalColor, sampler2D skybox, inout Pixel pixel) {
+void setColor(bool hitHorizon, bool hitSun, float transmittance, vec4 finalColor, sampler2D skybox, sampler2D sunTex, inout Pixel pixel) {
     vec3 color;
-    if (hitHorizon) {
-        color = vec3(0.0); // noir
+    if(hitSun) {
+    
+        float u_tex = pixel.photon.x.z/ (2.0 * M_PI);
+        float v_tex = pixel.photon.x.y / M_PI;
+        
+        color = texture(sunTex, vec2(u_tex, v_tex)).rgb;
+    }
+    else if (hitHorizon) {
+        if(pixel.photon.x.z < M_PI)  color = vec3(0,0,0); // noir
+        else color = vec3(0,0,0);
     } else {
         // convertisseur sphérique vers uv de la skybox
         float u_tex = pixel.photon.x.z / (2.0 * M_PI);

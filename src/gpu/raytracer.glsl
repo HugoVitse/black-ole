@@ -125,13 +125,13 @@ void main() {
     initTetrade(tetrade, vec4(camPos,0.0) );
 
     Pixel pixel = Pixel(vec3(0,0,0),0,0, Photon(vec4(0,0,0,0),vec4(0,0,0,0)));
-    initPixel(pixel, _h ,camPos, imgOutput, viewAngles, fov, tetrade);
+    initPixel(pixel, _h ,camPos, imgOutput, viewAngles, fov, tetrade, blackhole);
 
 
 
     // classic RK4
     int maxIter = 600;  // Nombre de pas max
-    float h = 0.02;      // augmente ca et la bande noire revient
+    float pas = 0.02;      // augmente ca et la bande noire revient
 
     vec4 finalColor = vec4(0.0);
     float transmittance = 1.0;
@@ -150,7 +150,7 @@ void main() {
 
         //RK4 steps
         
-        RK4step(blackhole, h, pixel.photon);
+        RK4step(blackhole, pas, pixel.photon);
         // stop conditions
         if (pixel.photon.x.x <= blackhole.rs * 1.01) {
             hitHorizon = true;

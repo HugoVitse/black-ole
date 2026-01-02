@@ -109,6 +109,7 @@ void OpenGL::initOpenGL() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // La fenêtre sera invisible
     
     this->window = glfwCreateWindow(WINDOW_W, WINDOW_H, "BlackHole Linux GPU", NULL, NULL);
     if (!this->window) { glfwTerminate(); return ; }
@@ -142,18 +143,17 @@ void OpenGL::initOpenGL() {
 
     std::string photonCode = loadFile("photon.glsl"); 
     std::string mainCode = loadFile("raytracer.glsl"); 
-    std::string metricCode = loadFile("metric.glsl");
+    std::string sunCode = loadFile("sun.glsl");
 
 
     std::string variablesCode = loadFile("variables.glsl");
     std::string realMaincode = loadFile("main.glsl");
 
-
     const std::vector<std::string> sources = {
         version,
         blackHoleCode,
+        sunCode,
         tetradeCode,
-        metricCode,
         photonCode,
         pixelCode,
         accretionDiskCode,
@@ -205,6 +205,8 @@ void OpenGL::initOpenGL() {
     glGenVertexArrays(1, &this->quadVAO);
 
     this->skyboxTexID = loadTexture("../assets/milkyway.png");
+    this->sunTexID = loadTexture("../assets/sun.jpg");
+
 
 
  

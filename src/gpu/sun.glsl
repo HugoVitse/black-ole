@@ -1,0 +1,4 @@
+struct Sun {
+
+    float radius;
+};

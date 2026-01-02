@@ -2,6 +2,9 @@ struct BlackHole {
     float mass;
     float rs;
     float rmax;
+
+    float ks1;
+    float ks2;
 };
 
 

@@ -28,7 +28,7 @@ void Camera::mouseMoveCam(OpenGL &opengl) {
         
     printf("camera.camR : %f\n", this->camR);
     printf("camTheta : %f\n", this->camTheta);
-    printf("camera.camR : %f\n", this->camPhi);
+    printf("camera.camPhi : %f\n", this->camPhi);
     printf("viewPitch : %f\n", this->viewPitch);
     printf("viewYaw : %f\n",this->viewYaw);
     printf("fov : %f\n", this->fov);

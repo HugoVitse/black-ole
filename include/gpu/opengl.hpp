@@ -21,7 +21,8 @@ struct OpenGL {
     GLuint displayProgram;
     GLuint quadVAO;
     GLuint skyboxTexID;
-    
+    GLuint sunTexID;
+
     GLFWwindow* window;
 
     private:

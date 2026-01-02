@@ -1,22 +1,40 @@
 
 const float EPS = 0.001;
-uniform float mass;
 
 
 
 mat4 getMetric(vec4 x) {
 
-    // float rs = 2.0; // Rayon de Schwarzschild (M=1)
-    // float r = length(p.xyz); // Si on est en cartésien
-
     mat4 g = mat4(0.0);
 
+    
 
-    float term = 1 -  (2*mass)/(x.x);
-    g[0][0] =  1/term;
-    g[1][1] =  (x.x*x.x);
-    g[2][2] =  (x.x*x.x) * (sin(x.y)*sin(x.y));
-    g[3][3] =  -term;
+    float Delta_raw = x.x * x.x + moment*moment - 2*mass*x.x;
+    float Delta = max(1e-5, Delta_raw);
+    float rho_squared = (x.x*x.x)  + ( (moment*moment) * (cos(x.y)*cos(x.y)) );
+    float Sigma_squared = (( (x.x)*(x.x) + moment*moment )*( (x.x)*(x.x) + moment*moment ) ) - (   (moment*moment) * Delta * ( sin(x.y)*sin(x.y) )  );
+
+    float alpha_squared = ( rho_squared / Sigma_squared) * Delta;
+    float pi_squared = (Sigma_squared/rho_squared) * (sin(x.y) * sin(x.y));
+    float omega = (2*moment*mass*x.x) / (Sigma_squared);
+    
+
+    g[0][0] =  (rho_squared/Delta);
+    g[1][1] =  rho_squared;
+    g[2][2] =  pi_squared;
+    g[3][3] =  (-1 * alpha_squared) + ((omega*omega) * pi_squared);
+
+    g[2][3] = -1 * omega * pi_squared;
+    g[3][2] = -1 * omega * pi_squared;
+
+    
+
+    // float term = 1 -  (2*mass)/(x.x);
+    // g[0][0] =  1/term;
+    // g[1][1] =  (x.x*x.x);
+    // g[2][2] =  (x.x*x.x) * (sin(x.y)*sin(x.y));
+    // g[3][3] =  -term;
+
 
     
     return g; 
@@ -32,6 +50,9 @@ mat4 getDerivMetric(vec4 p, int d_idx) {
     
     return (g_plus - g_minus) / (2.0 * EPS);
 }
+
+
+
 
 
 // calcul des symboles de christoffel a partir de la métrique !!!! splendid !!
